@@ -1,0 +1,129 @@
+import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  await Hive.openBox<String>('students');
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: StudentPage(),
+    );
+  }
+}
+
+class StudentPage extends StatefulWidget {
+  const StudentPage({super.key});
+
+  @override
+  State<StudentPage> createState() => _StudentPageState();
+}
+
+class _StudentPageState extends State<StudentPage> {
+  final TextEditingController _controller = TextEditingController();
+  final Box<String> _box = Hive.box<String>('students');
+
+  int? editingIndex;
+
+  void addOrUpdateStudent() {
+    if (_controller.text.trim().isEmpty) return;
+
+    if (editingIndex == null) {
+      _box.add(_controller.text.trim());
+    } else {
+      _box.putAt(editingIndex!, _controller.text.trim());
+      editingIndex = null;
+    }
+
+    _controller.clear();
+  }
+
+  void deleteStudent(int index) {
+    _box.deleteAt(index);
+  }
+
+  void editStudent(int index) {
+    _controller.text = _box.getAt(index)!;
+    editingIndex = index;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Student Manager"),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: "Enter Student Name",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: addOrUpdateStudent,
+              child: Text(editingIndex == null
+                  ? "Add Student"
+                  : "Update Student"),
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: ValueListenableBuilder(
+                valueListenable: _box.listenable(),
+                builder: (context, Box<String> box, _) {
+                  if (box.isEmpty) {
+                    return const Center(
+                      child: Text("No Students Added"),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: box.length,
+                    itemBuilder: (context, index) {
+                      final student = box.getAt(index);
+
+                      return Card(
+                        child: ListTile(
+                          title: Text(student ?? ''),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit,
+                                    color: Colors.blue),
+                                onPressed: () => editStudent(index),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                onPressed: () => deleteStudent(index),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
